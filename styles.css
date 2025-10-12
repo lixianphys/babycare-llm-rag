@@ -1,0 +1,124 @@
+/* Baby Care Chatbot - Custom Styles */
+
+.baby-care-header {
+    text-align: center;
+    background: linear-gradient(90deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.cost-info {
+    background-color: #f0f8ff;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.chat-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.document-card {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.document-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.document-content {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #333;
+    margin-bottom: 8px;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.document-source {
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 8px;
+    font-style: italic;
+}
+
+.document-cards-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Additional responsive styles */
+@media (max-width: 768px) {
+    .document-card {
+        padding: 8px;
+        margin: 6px 0;
+    }
+    
+    .document-content {
+        font-size: 13px;
+        max-height: 80px;
+    }
+    
+    .document-cards-container {
+        max-height: 300px;
+    }
+}
+
+/* Balanced layout styles */
+.gradio-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Sidebar panel spacing */
+.gradio-group {
+    margin-bottom: 15px;
+}
+
+/* Better spacing for nested columns */
+.gradio-row .gradio-column {
+    padding: 0 5px;
+}
+
+/* Improved button spacing */
+.gradio-button {
+    margin: 2px;
+}
+
+/* Better examples styling */
+.gradio-examples {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Button hover effects */
+.gradio-button:hover {
+    transform: translateY(-1px);
+    transition: transform 0.2s ease;
+}
+
+/* Input field focus effects */
+.gradio-textbox:focus {
+    border-color: #ff9a9e;
+    box-shadow: 0 0 0 2px rgba(255, 154, 158, 0.2);
+}
+
+/* Chat message styling */
+.user-message {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196f3;
+}
+
+.bot-message {
+    background-color: #f3e5f5;
+    border-left: 4px solid #9c27b0;
+}
