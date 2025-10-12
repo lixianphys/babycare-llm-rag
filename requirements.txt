@@ -1,0 +1,13 @@
+langgraph==0.2.70
+langchain==0.2.1
+langchain_openai==0.1.7
+python-dotenv==1.0.0
+pydantic==2.9.2
+pydantic-settings==2.2.1
+pathlib==
+pinecone-client==4.1.0
+langchain-pinecone==0.2.12
+sentence-transformers==2.6.0
+langsmith==0.4.34
+gradio==5.49.1
+langchain-community==0.2
