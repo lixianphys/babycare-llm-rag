@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 
 from .chat_flow import BabyCareState
-from .simple_vector_store import SimpleBabyCareVectorStore, create_sample_baby_care_documents
+from ._in_memory_vector_store import SimpleBabyCareVectorStore, create_sample_baby_care_documents
 from .vector_store import BabyCareVectorStore, create_sample_baby_care_documents
 from .rag_system import BabyCareRAGSystem, RAGConfig
 from .langsmith_monitor import LangSmithMonitor
@@ -47,7 +47,7 @@ class IntegratedBabyCareChatbot:
         self.enable_monitoring = enable_monitoring
         
         # Initialize monitoring
-        self.monitor = LangSmithMonitor() if enable_monitoring else None
+        self.monitor = LangSmithMonitor("baby-care-chatbot") if enable_monitoring else None
         
         # Initialize components
         self.vector_store = SimpleBabyCareVectorStore() if config.use_memory_vector_store else BabyCareVectorStore(index_name=config.index_name_vector_store)

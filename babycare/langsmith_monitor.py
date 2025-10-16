@@ -1,8 +1,7 @@
 """
-LangSmith Monitoring Module for Baby Care Chatbot
+LangSmith Monitoring Module
 
-This module provides comprehensive monitoring, cost tracking, and performance
-analytics for the baby care chatbot using LangSmith.
+This module provides comprehensive monitoring, cost tracking, and performance analytics using LangSmith.
 """
 
 import os
@@ -24,96 +23,40 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class CostTrackingCallback(BaseCallbackHandler):
+class LangSmithCostTracker:
     """
-    Custom callback handler for tracking costs and performance metrics.
-    
-    This handler captures detailed information about each LLM call including
-    token usage, costs, and timing information.
+    Cost tracker that uses LangSmith Client to query token usage information.
     """
-    
-    def __init__(self):
-        """Initialize the cost tracking callback."""
-        self.total_tokens = 0
-        self.total_cost = 0.0
-        self.call_count = 0
-        self.call_details = []
+    def __init__(self, client: Client, project_name: str):
+        """
+        Initialize the cost tracker.
         
-        # OpenAI pricing (as of 2024 - update as needed)
+        Args:
+            client (Client): LangSmith client instance
+            project_name (str): Name of the LangSmith project
+        """
+        self.client = client
+        self.project_name = project_name
+        self.cached_runs = []
+        self.last_query_time = None
+        
+        # OpenAI pricing (as of 2025 - update as needed)
         self.pricing = {
             "gpt-4o-mini": {
                 "input": 0.00015 / 1000,  # $0.15 per 1K tokens
                 "output": 0.0006 / 1000   # $0.60 per 1K tokens
             },
+            "gpt-4o": {
+                "input": 0.0025 / 1000,   # $2.50 per 1K tokens
+                "output": 0.01 / 1000     # $10.00 per 1K tokens
+            },
             "text-embedding-3-small": {
                 "input": 0.00002 / 1000   # $0.02 per 1K tokens
+            },
+            "text-embedding-3-large": {
+                "input": 0.00013 / 1000   # $0.13 per 1K tokens
             }
         }
-    
-    def on_llm_start(self, serialized: Dict[str, Any], prompts: List[str], **kwargs) -> None:
-        """Called when LLM starts processing."""
-        self.call_count += 1
-        logger.info(f"LLM call #{self.call_count} started")
-    
-    def on_llm_end(self, response: Any, **kwargs) -> None:
-        """Called when LLM finishes processing."""
-        try:
-            # Extract token usage information from different possible locations
-            token_usage = None
-            model_name = 'gpt-4o-mini'
-            
-            # Try to get token usage from response.llm_output
-            if hasattr(response, 'llm_output') and response.llm_output:
-                token_usage = response.llm_output.get('token_usage', {})
-            
-            # Try to get token usage from response.usage_metadata
-            elif hasattr(response, 'usage_metadata') and response.usage_metadata:
-                token_usage = {
-                    'prompt_tokens': response.usage_metadata.input_tokens,
-                    'completion_tokens': response.usage_metadata.output_tokens,
-                    'total_tokens': response.usage_metadata.total_tokens
-                }
-            
-            # Try to get model name
-            if hasattr(response, 'model_name'):
-                model_name = response.model_name
-            elif hasattr(response, 'model'):
-                model_name = response.model
-            
-            if token_usage and any(token_usage.values()):
-                prompt_tokens = token_usage.get('prompt_tokens', 0)
-                completion_tokens = token_usage.get('completion_tokens', 0)
-                total_tokens = token_usage.get('total_tokens', 0)
-                
-                # Calculate cost based on model
-                cost = self._calculate_cost(model_name, prompt_tokens, completion_tokens)
-                
-                # Update totals
-                self.total_tokens += total_tokens
-                self.total_cost += cost
-                
-                # Store call details
-                call_detail = {
-                    "timestamp": datetime.now().isoformat(),
-                    "model": model_name,
-                    "prompt_tokens": prompt_tokens,
-                    "completion_tokens": completion_tokens,
-                    "total_tokens": total_tokens,
-                    "cost": cost,
-                    "type": "chat_completion"
-                }
-                self.call_details.append(call_detail)
-                
-                logger.info(f"LLM call completed - Model: {model_name}, Tokens: {total_tokens}, Cost: ${cost:.4f}")
-            else:
-                logger.warning("No token usage information found in LLM response")
-        
-        except Exception as e:
-            logger.error(f"Error processing LLM end callback: {e}")
-    
-    def on_llm_error(self, error: Exception, **kwargs) -> None:
-        """Called when LLM encounters an error."""
-        logger.error(f"LLM error: {error}")
     
     def _calculate_cost(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
         """
@@ -128,8 +71,10 @@ class CostTrackingCallback(BaseCallbackHandler):
             float: Calculated cost in USD
         """
         try:
-            if model in self.pricing:
-                pricing = self.pricing[model]
+            # Normalize model name to match pricing keys
+            model_key = model.lower().replace("-", "_")
+            if model_key in self.pricing:
+                pricing = self.pricing[model_key]
                 input_cost = prompt_tokens * pricing.get("input", 0)
                 output_cost = completion_tokens * pricing.get("output", 0)
                 return input_cost + output_cost
@@ -140,20 +85,207 @@ class CostTrackingCallback(BaseCallbackHandler):
             logger.error(f"Error calculating cost: {e}")
             return 0.0
     
-    def get_summary(self) -> Dict[str, Any]:
+    def _extract_token_usage_from_run(self, run) -> Optional[Dict[str, Any]]:
         """
-        Get a summary of all tracked metrics.
+        Extract token usage information from a LangSmith run.
         
+        Args:
+            run: LangSmith run object
+            
         Returns:
-            Dict[str, Any]: Summary of costs and usage
+            Optional[Dict[str, Any]]: Token usage data or None if not found
         """
-        return {
-            "total_calls": self.call_count,
-            "total_tokens": self.total_tokens,
-            "total_cost": round(self.total_cost, 4),
-            "average_cost_per_call": round(self.total_cost / max(self.call_count, 1), 4),
-            "call_details": self.call_details
-        }
+        try:
+            
+            token_usage = {
+            'prompt_tokens': run.prompt_tokens,
+            'completion_tokens': run.completion_tokens,
+            'total_tokens': run.total_tokens
+            }
+            return token_usage
+            
+        except Exception as e:
+            logger.error(f"Error extracting token usage from run: {e}")
+            return None
+    
+    def get_recent_runs_with_tokens(self, limit: int = 1) -> List[Dict[str, Any]]:
+        """
+        Get recent runs from LangSmith that have token usage information.
+        
+        Args:
+            limit (int): Maximum number of runs to fetch
+            
+        Returns:
+            List[Dict[str, Any]]: List of runs with token usage data
+        """
+        try:
+            # Query recent runs from the project
+            runs = list(self.client.list_runs(
+                project_name=self.project_name,
+                limit=limit,
+                order_by="start_time",
+                order="desc"
+            ))
+            logger.info(f"Retrieved {len(runs)} runs from LangSmith")
+            runs_with_tokens = []
+            for run in runs:
+                token_usage = self._extract_token_usage_from_run(run)
+                if token_usage:
+                    run_data = {
+                        'run_id': run.id,
+                        'name': run.name,
+                        'start_time': run.start_time.isoformat() if run.start_time else None,
+                        'end_time': run.end_time.isoformat() if run.end_time else None,
+                        'model': self._extract_model_name(run),
+                        'token_usage': token_usage,
+                        'cost': self._calculate_cost(
+                            self._extract_model_name(run),
+                            token_usage.get('prompt_tokens', 0),
+                            token_usage.get('completion_tokens', 0)
+                        )
+                    }
+                    runs_with_tokens.append(run_data)
+            
+            self.cached_runs = runs_with_tokens
+            self.last_query_time = datetime.now()
+            
+            logger.info(f"Retrieved {len(runs_with_tokens)} runs with token usage from LangSmith")
+            return runs_with_tokens
+            
+        except Exception as e:
+            logger.error(f"Error fetching runs from LangSmith: {e}")
+            return []
+    
+    def _extract_model_name(self, run) -> str:
+        """
+        Extract model name from a LangSmith run.
+        
+        Args:
+            run: LangSmith run object
+            
+        Returns:
+            str: Model name or default
+        """
+        try:
+            # Check various possible locations for model name
+            extra = getattr(run, 'extra', None)
+            if extra:
+                if isinstance(extra, dict):
+                    # Check for model in extra metadata
+                    if 'model' in extra:
+                        return extra['model']
+                    if 'model_name' in extra:
+                        return extra['model_name']
+                else:
+                    # If extra is an object, try attribute access
+                    if hasattr(extra, 'model'):
+                        return extra.model
+                    if hasattr(extra, 'model_name'):
+                        return extra.model_name
+            
+            # Check inputs for model information
+            inputs = getattr(run, 'inputs', None)
+            if inputs:
+                if isinstance(inputs, dict):
+                    if 'model' in inputs:
+                        return inputs['model']
+                    if 'model_name' in inputs:
+                        return inputs['model_name']
+                else:
+                    # If inputs is an object, try attribute access
+                    if hasattr(inputs, 'model'):
+                        return inputs.model
+                    if hasattr(inputs, 'model_name'):
+                        return inputs.model_name
+            
+            # Check outputs for model information
+            outputs = getattr(run, 'outputs', None)
+            if outputs:
+                if isinstance(outputs, dict):
+                    if 'model' in outputs:
+                        return outputs['model']
+                    if 'model_name' in outputs:
+                        return outputs['model_name']
+                else:
+                    # If outputs is an object, try attribute access
+                    if hasattr(outputs, 'model'):
+                        return outputs.model
+                    if hasattr(outputs, 'model_name'):
+                        return outputs.model_name
+            
+            # Default fallback
+            return 'gpt-4o-mini'
+            
+        except Exception as e:
+            logger.error(f"Error extracting model name: {e}")
+            return 'gpt-4o-mini'
+    
+    def get_cost_summary(self, limit: int = 100) -> Dict[str, Any]:
+        """
+        Get a comprehensive cost summary from LangSmith data.
+        
+        Args:
+            limit (int): Maximum number of runs to analyze
+            
+        Returns:
+            Dict[str, Any]: Cost and usage summary
+        """
+        try:
+            # Get recent runs with token usage
+            runs = self.get_recent_runs_with_tokens(limit)
+            
+            if not runs:
+                return {
+                    "total_calls": 0,
+                    "total_tokens": 0,
+                    "total_cost": 0.0,
+                    "average_cost_per_call": 0.0,
+                    "call_details": [],
+                    "model_breakdown": {},
+                    "last_updated": datetime.now().isoformat()
+                }
+            
+            # Calculate totals
+            total_calls = len(runs)
+            total_tokens = sum(run['token_usage'].get('total_tokens', 0) for run in runs)
+            total_cost = sum(run['cost'] for run in runs)
+            
+            # Model breakdown
+            model_breakdown = {}
+            for run in runs:
+                model = run['model']
+                if model not in model_breakdown:
+                    model_breakdown[model] = {
+                        'calls': 0,
+                        'tokens': 0,
+                        'cost': 0.0
+                    }
+                model_breakdown[model]['calls'] += 1
+                model_breakdown[model]['tokens'] += run['token_usage'].get('total_tokens', 0)
+                model_breakdown[model]['cost'] += run['cost']
+            
+            return {
+                "total_calls": total_calls,
+                "total_tokens": total_tokens,
+                "total_cost": round(total_cost, 4),
+                "average_cost_per_call": round(total_cost / max(total_calls, 1), 4),
+                "call_details": runs,
+                "model_breakdown": model_breakdown,
+                "last_updated": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating cost summary: {e}")
+            return {
+                "total_calls": 0,
+                "total_tokens": 0,
+                "total_cost": 0.0,
+                "average_cost_per_call": 0.0,
+                "call_details": [],
+                "model_breakdown": {},
+                "error": str(e),
+                "last_updated": datetime.now().isoformat()
+            }
 
 
 class LangSmithMonitor:
@@ -164,7 +296,7 @@ class LangSmithMonitor:
     cost tracking, performance analytics, and debugging support.
     """
     
-    def __init__(self, project_name: str = "baby-care-chatbot"):
+    def __init__(self, project_name: str):
         """
         Initialize the LangSmith monitor.
         
@@ -174,13 +306,14 @@ class LangSmithMonitor:
         self.project_name = project_name
         self.client = None
         self.tracer = None
-        self.cost_tracker = CostTrackingCallback()
+        self.cost_tracker = None
         
         # Initialize LangSmith client if API key is available
         if os.getenv("LANGCHAIN_API_KEY"):
             try:
                 self.client = Client()
                 self.tracer = LangChainTracer(project_name=project_name)
+                self.cost_tracker = LangSmithCostTracker(self.client, project_name)
                 logger.info(f"LangSmith monitoring initialized for project: {project_name}")
             except Exception as e:
                 logger.error(f"Failed to initialize LangSmith client: {e}")
@@ -194,7 +327,7 @@ class LangSmithMonitor:
         Returns:
             List[BaseCallbackHandler]: List of callback handlers
         """
-        callbacks = [self.cost_tracker]
+        callbacks = []
         
         if self.tracer:
             callbacks.append(self.tracer)
@@ -216,7 +349,7 @@ class LangSmithMonitor:
         try:
             # Create a run for this query
             run_data = {
-                "name": "baby_care_query",
+                "name": self.project_name + "_query",
                 "inputs": {"query": query},
                 "outputs": {"response": response},
                 "metadata": metadata or {},
@@ -232,14 +365,29 @@ class LangSmithMonitor:
         except Exception as e:
             logger.error(f"Error logging query to LangSmith: {e}")
     
-    def get_cost_summary(self) -> Dict[str, Any]:
+    def get_cost_summary(self, limit: int = 100) -> Dict[str, Any]:
         """
-        Get a summary of costs and usage.
+        Get a summary of costs and usage from LangSmith data.
         
+        Args:
+            limit (int): Maximum number of runs to analyze
+            
         Returns:
             Dict[str, Any]: Cost and usage summary
         """
-        return self.cost_tracker.get_summary()
+        if self.cost_tracker:
+            return self.cost_tracker.get_cost_summary(limit)
+        else:
+            return {
+                "total_calls": 0,
+                "total_tokens": 0,
+                "total_cost": 0.0,
+                "average_cost_per_call": 0.0,
+                "call_details": [],
+                "model_breakdown": {},
+                "error": "LangSmith client not initialized",
+                "last_updated": datetime.now().isoformat()
+            }
     
     def get_session_stats(self) -> Dict[str, Any]:
         """
@@ -257,7 +405,9 @@ class LangSmithMonitor:
             "total_cost_usd": summary["total_cost"],
             "average_cost_per_query": summary["average_cost_per_call"],
             "langsmith_enabled": self.client is not None,
-            "project_name": self.project_name
+            "project_name": self.project_name,
+            "model_breakdown": summary.get("model_breakdown", {}),
+            "last_updated": summary.get("last_updated", datetime.now().isoformat())
         }
     
     def export_cost_data(self, filename: Optional[str] = None) -> str:
@@ -272,13 +422,15 @@ class LangSmithMonitor:
         """
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"baby_care_chatbot_costs_{timestamp}.json"
+            filename = f"{self.project_name}_costs_{timestamp}.json"
         
         try:
+            cost_summary = self.get_cost_summary()
             data = {
                 "export_timestamp": datetime.now().isoformat(),
                 "session_stats": self.get_session_stats(),
-                "detailed_calls": self.cost_tracker.call_details
+                "detailed_calls": cost_summary.get("call_details", []),
+                "model_breakdown": cost_summary.get("model_breakdown", {})
             }
             
             with open(filename, 'w') as f:
@@ -291,27 +443,64 @@ class LangSmithMonitor:
             logger.error(f"Error exporting cost data: {e}")
             return ""
     
-    def print_cost_summary(self) -> None:
-        """Print a formatted cost summary to the console."""
+    def _print_cost_summary(self) -> None:
+        """Print a formatted cost summary to the console (For debugging purposes)."""
         stats = self.get_session_stats()
+        cost_summary = self.get_cost_summary()
         
         print("\n" + "="*60)
-        print("💰 BABY CARE CHATBOT - COST SUMMARY")
+        print("Cost Summary")
         print("="*60)
-        print(f"📊 Total Queries: {stats['total_queries']}")
-        print(f"🔤 Total Tokens: {stats['total_tokens']:,}")
-        print(f"💵 Total Cost: ${stats['total_cost_usd']:.4f}")
-        print(f"📈 Avg Cost/Query: ${stats['average_cost_per_query']:.4f}")
-        print(f"🔍 LangSmith: {'✅ Enabled' if stats['langsmith_enabled'] else '❌ Disabled'}")
-        print(f"📁 Project: {stats['project_name']}")
+        print(f" Total Queries: {stats['total_queries']}")
+        print(f" Total Tokens: {stats['total_tokens']:,}")
+        print(f" Total Cost: ${stats['total_cost_usd']:.4f}")
+        print(f" Avg Cost/Query: ${stats['average_cost_per_query']:.4f}")
+        print(f" LangSmith: {'Enabled' if stats['langsmith_enabled'] else 'Disabled'}")
+        print(f" Project: {stats['project_name']}")
+        print(f" Last Updated: {stats.get('last_updated', 'Unknown')}")
         print("="*60)
         
-        if stats['total_queries'] > 0:
-            print("\n📋 Recent Calls:")
-            for i, call in enumerate(self.cost_tracker.call_details[-5:], 1):
-                print(f"  {i}. {call['model']} - {call['total_tokens']} tokens - ${call['cost']:.4f}")
+        # Print model breakdown
+        model_breakdown = stats.get('model_breakdown', {})
+        if model_breakdown:
+            print("\n Model Breakdown:")
+            for model, data in model_breakdown.items():
+                print(f"  {model}: {data['calls']} calls, {data['tokens']:,} tokens, ${data['cost']:.4f}")
+        
+        # Print recent calls
+        call_details = cost_summary.get('call_details', [])
+        if call_details:
+            print("\n Recent Calls:")
+            for i, call in enumerate(call_details[-5:], 1):
+                print(f"  {i}. {call['model']} - {call['token_usage'].get('total_tokens', 0)} tokens - ${call['cost']:.4f}")
         
         print()
+    
+    def refresh_cost_data(self, limit: int = 100) -> Dict[str, Any]:
+        """
+        Refresh cost data from LangSmith by querying recent runs.
+        
+        Args:
+            limit (int): Maximum number of runs to fetch
+            
+        Returns:
+            Dict[str, Any]: Updated cost summary
+        """
+        if self.cost_tracker:
+            logger.info(f"Refreshing cost data from LangSmith (limit: {limit})")
+            return self.cost_tracker.get_cost_summary(limit)
+        else:
+            logger.warning("Cannot refresh cost data: LangSmith client not initialized")
+            return {
+                "total_calls": 0,
+                "total_tokens": 0,
+                "total_cost": 0.0,
+                "average_cost_per_call": 0.0,
+                "call_details": [],
+                "model_breakdown": {},
+                "error": "LangSmith client not initialized",
+                "last_updated": datetime.now().isoformat()
+            }
 
 
 def create_monitoring_decorator(monitor: LangSmithMonitor):
@@ -323,9 +512,17 @@ def create_monitoring_decorator(monitor: LangSmithMonitor):
         
     Returns:
         function: Decorator function
+
+    Usage:
+    @create_monitoring_decorator(monitor)
+    def my_function(*args, **kwargs):
+        ...
     """
+    from functools import wraps
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
+            """Wrapper function for the decorated function."""
             start_time = datetime.now()
             
             try:
@@ -366,23 +563,23 @@ def create_monitoring_decorator(monitor: LangSmithMonitor):
 
 def main():
     """
-    Main function to demonstrate LangSmith monitoring.
+    For debugging purposes.
     """
-    print("🔍 LangSmith Monitoring Demo")
+    print(" LangSmith Monitoring Demo")
     print("="*40)
     
     # Initialize monitor
-    monitor = LangSmithMonitor()
+    monitor = LangSmithMonitor("baby-care-chatbot")
     
     # Get callbacks for use with LangChain
     callbacks = monitor.get_callbacks()
-    print(f"✅ Initialized with {len(callbacks)} callback handlers")
+    print(f"Initialized with {len(callbacks)} callback handlers")
     
     # Print initial stats
-    monitor.print_cost_summary()
+    monitor._print_cost_summary()
     
     # Simulate some usage
-    print("📝 Simulating query logging...")
+    print("Simulating query logging...")
     monitor.log_query(
         query="How much should a 3-month-old baby eat?",
         response="For a 3-month-old baby, they should typically eat 4-6 ounces of formula or breast milk every 3-4 hours...",
@@ -390,12 +587,12 @@ def main():
     )
     
     # Print updated stats
-    monitor.print_cost_summary()
+    monitor._print_cost_summary()
     
     # Export data
-    export_file = monitor.export_cost_data()
+    export_file = monitor.export_cost_data("test_cost_data.json")
     if export_file:
-        print(f"📁 Cost data exported to: {export_file}")
+        print(f" Cost data exported to: {export_file}")
 
 
 if __name__ == "__main__":

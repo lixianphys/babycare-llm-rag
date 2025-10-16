@@ -1,33 +1,28 @@
-# -*- coding: utf-8 -*-
 """
 Gradio Frontend for Baby Care Chatbot
-
-This module provides a web-based interface for the baby care chatbot
-using Gradio for easy deployment and user interaction.
 """
 
 import os
 import gradio as gr
 
 from babycare.integrated_chatbot import IntegratedBabyCareChatbot
-from babycare.langsmith_monitor import LangSmithMonitor
 
-# Load environment variables
 from dotenv import load_dotenv
+import logging
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class BabyCareGradioApp:
     """
     Gradio application for the baby care chatbot.
     
-    This class manages the web interface and integrates with the
+    Manages the web interface and integrates with the
     baby care chatbot backend.
     """
     
     def __init__(self):
-        """Initialize the Gradio application."""
         self.chatbot = None
-        self.cost_tracker = LangSmithMonitor()
         self.total_documents = 0
         self.current_retrieved_count = 0
         
@@ -38,7 +33,6 @@ class BabyCareGradioApp:
         self.interface = self._create_interface()
     
     def _initialize_chatbot(self):
-        """Initialize the baby care chatbot."""
         try:
             self.chatbot = IntegratedBabyCareChatbot(enable_monitoring=True)
             
@@ -46,27 +40,26 @@ class BabyCareGradioApp:
             kb_info = self.chatbot.get_knowledge_base_info()
             self.total_documents = kb_info.get('document_count', 0)
             
-            print("✅ Baby Care Chatbot initialized successfully")
-            print(f"📚 Total documents in knowledge base: {self.total_documents}")
+            logger.info("Baby Care Chatbot initialized successfully")
+            logger.info(f"Total documents in knowledge base: {self.total_documents}")
         except Exception as e:
-            print(f"❌ Error initializing chatbot: {e}")
+            logger.error(f"Error initializing chatbot: {e}")
             self.chatbot = None
     
     def _load_css(self):
-        """Load CSS from external file."""
         css_file_path = os.path.join(os.path.dirname(__file__), 'styles.css')
         try:
             with open(css_file_path, 'r', encoding='utf-8') as f:
                 return f.read()
         except FileNotFoundError:
-            print(f"Warning: CSS file not found at {css_file_path}")
+            logger.warning(f"CSS file not found at {css_file_path}")
             return ""
         except Exception as e:
-            print(f"Warning: Error loading CSS file: {e}")
+            logger.warning(f"Error loading CSS file: {e}")
             return ""
     
     def _create_interface(self):
-        """Create the Gradio interface using gr.Blocks with careful function definitions."""
+        """Create the Gradio interface using gr.Blocks."""
         
         # Load CSS from external file
         css = self._load_css()
@@ -76,8 +69,8 @@ class BabyCareGradioApp:
             # Header
             gr.HTML("""
             <div class="baby-care-header">
-                <h1>👶 Baby Care Chatbot</h1>
-                <p>Your expert guide for baby care, nutrition, healthcare, and development</p>
+                <h1>Baby Care Chatbot</h1>
+                <p>Your expert guide for pregnancy, baby care, nutrition, healthcare, and development. Data used for RAG system is mainly from https://www.medicinesinpregnancy.org and https://mothertobaby.org. This chatbot is not a medical professional and should not be used as a substitute for professional medical advice.</p>
             </div>
             """)
             
@@ -85,7 +78,8 @@ class BabyCareGradioApp:
                 with gr.Column(scale=2):
                     # Chat interface
                     chatbot_interface = gr.Chatbot(
-                        label="Chat with Baby Care Expert",
+                        label="Chat with the baby care expert",
+                        type="tuples",
                         height=500,
                         show_label=True,
                         container=True,
@@ -105,27 +99,12 @@ class BabyCareGradioApp:
                     clear_btn = gr.Button("Clear Chat", variant="secondary")
                 
                 with gr.Column(scale=2):
-                    # Top row: Cost monitoring and Knowledge base
-                    with gr.Row():
-                        with gr.Column(scale=1):
-                            # Cost monitoring panel
-                            with gr.Group():
-                                gr.Markdown("### 💰 Cost Monitoring")
-                                cost_display = gr.HTML("""
-                                <div class="cost-info">
-                                    <p><strong>Session Cost:</strong> $0.0000</p>
-                                    <p><strong>Total Queries:</strong> 0</p>
-                                    <p><strong>Total Tokens:</strong> 0</p>
-                                </div>
-                                """)
-                                
-                                refresh_cost_btn = gr.Button("Refresh Costs", size="sm")
-                                export_cost_btn = gr.Button("Export Cost Data", size="sm")
-                        
+                    # Top row: Cost monitoring and knowledge base
+                    with gr.Row():                        
                         with gr.Column(scale=1):
                             # Knowledge base info
                             with gr.Group():
-                                gr.Markdown("### 📚 Knowledge Base")
+                                gr.Markdown("### Knowledge Base")
                                 kb_info = gr.HTML("""
                                 <div class="cost-info">
                                     <p><strong>Documents:</strong> Loading...</p>
@@ -135,40 +114,38 @@ class BabyCareGradioApp:
                     
                     # Document cards panel (full width)
                     with gr.Group():
-                        gr.Markdown("### 📄 Retrieved Documents")
+                        gr.Markdown("### Retrieved Documents")
                         document_cards = gr.HTML("""
                         <div class="cost-info">
                             <p><em>Documents will appear here when used for answers</em></p>
                         </div>
                         """)
                     
-                    # Bottom row: Quick actions and PDF upload
-                    with gr.Row():
+                    # Bottom row: Frequently Asked Questions
+                    with gr.Row():  
                         with gr.Column(scale=1):
-                            # Quick actions
                             with gr.Group():
-                                gr.Markdown("### 🚀 Quick Actions")
+                                gr.Markdown("### Frequently Asked Questions")
                                 sample_questions = gr.Examples(
                                     examples=[
-                                        "How much should a 3-month-old baby eat?",
-                                        "What are the signs of colic?",
-                                        "When should I start baby-proofing?",
-                                        "What are normal sleep patterns for 6-month-olds?",
-                                        "Tell me about developmental milestones"
+                                        "should I drink coffee during pregnancy?",
+                                        "How will albuterol affect pregnancy and breastfeeding?",
+                                        "What are the signs of colic in babies?",
+                                        "Does a COVID-19 infection have any negative effect on babies?",
                                     ],
                                     inputs=msg_input,
-                                    label="Sample Questions"
+                                    label="Ask a question"
                                 )
                         
             
-            # Event handlers - using simple function definitions without type annotations
+            # Event handlers
             def respond(message, history):
                 """Handle user input and generate response."""
                 if not message.strip():
                     return "", history, "Please enter a question.", "", ""
                 
                 if not self.chatbot:
-                    return "", history, "❌ Chatbot not initialized. Please check your configuration.", "", ""
+                    return "", history, " Chatbot not initialized. Please check your configuration.", "", ""
                 
                 try:
                     # Generate response and get retrieval info
@@ -177,16 +154,6 @@ class BabyCareGradioApp:
                     
                     # Update chat history
                     history.append([message, response])
-                    
-                    # Update cost display
-                    cost_summary = self.chatbot.get_cost_summary()
-                    cost_html = f"""
-                    <div class="cost-info">
-                        <p><strong>Session Cost:</strong> ${cost_summary.get('total_cost', 0):.4f}</p>
-                        <p><strong>Total Queries:</strong> {cost_summary.get('total_calls', 0)}</p>
-                        <p><strong>Total Tokens:</strong> {cost_summary.get('total_tokens', 0):,}</p>
-                    </div>
-                    """
                     
                     # Update knowledge base info
                     kb_html = f"""
@@ -207,7 +174,7 @@ class BabyCareGradioApp:
                         </div>
                         """
                     
-                    return "", history, cost_html, kb_html, cards_html
+                    return "", history, kb_html, cards_html
                     
                 except Exception as e:
                     error_msg = f"❌ Error: {str(e)}"
@@ -215,7 +182,7 @@ class BabyCareGradioApp:
                     return "", history, "Error occurred. Please try again.", "", ""
             
             def clear_chat():
-                """Clear the chat history."""
+                """Clear the chat history and reset the knowledge base info and document cards."""
                 self.current_retrieved_count = 0
                 
                 kb_info_html = f"""
@@ -232,41 +199,35 @@ class BabyCareGradioApp:
                 </div>
                 """
                 
-                return [], """
-                <div class="cost-info">
-                    <p><strong>Session Cost:</strong> $0.0000</p>
-                    <p><strong>Total Queries:</strong> 0</p>
-                    <p><strong>Total Tokens:</strong> 0</p>
-                </div>
-                """, kb_info_html, cards_html
+                return [], kb_info_html, cards_html
             
-            def refresh_costs():
-                """Refresh the cost display."""
-                if not self.chatbot:
-                    return "❌ Chatbot not available"
+            # def refresh_costs():
+            #     """Refresh the cost display."""
+            #     if not self.chatbot:
+            #         return "Chatbot not available"
                 
-                cost_summary = self.chatbot.get_cost_summary()
-                return f"""
-                <div class="cost-info">
-                    <p><strong>Session Cost:</strong> ${cost_summary.get('total_cost', 0):.4f}</p>
-                    <p><strong>Total Queries:</strong> {cost_summary.get('total_calls', 0)}</p>
-                    <p><strong>Total Tokens:</strong> {cost_summary.get('total_tokens', 0):,}</p>
-                </div>
-                """
+            #     cost_summary = self.chatbot.get_cost_summary()
+            #     return f"""
+            #     <div class="cost-info">
+            #         <p><strong>Session Cost:</strong> ${cost_summary.get('total_cost', 0):.4f}</p>
+            #         <p><strong>Total Queries:</strong> {cost_summary.get('total_calls', 0)}</p>
+            #         <p><strong>Total Tokens:</strong> {cost_summary.get('total_tokens', 0):,}</p>
+            #     </div>
+            #     """
             
-            def export_costs():
-                """Export cost data."""
-                if not self.chatbot:
-                    return "❌ Chatbot not available"
+            # def export_costs():
+            #     """Export cost data."""
+            #     if not self.chatbot:
+            #         return "Chatbot not available"
                 
-                try:
-                    filename = self.chatbot.export_cost_data()
-                    if filename:
-                        return f"✅ Cost data exported to: {filename}"
-                    else:
-                        return "❌ Failed to export cost data"
-                except Exception as e:
-                    return f"❌ Error exporting: {str(e)}"
+            #     try:
+            #         filename = self.chatbot.export_cost_data()
+            #         if filename:
+            #             return f" Cost data exported to: {filename}"
+            #         else:
+            #             return "Failed to export cost data"
+            #     except Exception as e:
+            #         return f"Error exporting: {str(e)}"
             
             def update_kb_info():
                 """Update knowledge base information."""
@@ -278,13 +239,12 @@ class BabyCareGradioApp:
                 </div>
                 """
             # Connect event handlers
-            msg_input.submit(respond, [msg_input, chatbot_interface], [msg_input, chatbot_interface, cost_display, kb_info, document_cards])
-            send_btn.click(respond, [msg_input, chatbot_interface], [msg_input, chatbot_interface, cost_display, kb_info, document_cards])
-            clear_btn.click(clear_chat, outputs=[chatbot_interface, cost_display, kb_info, document_cards])
-            refresh_cost_btn.click(refresh_costs, outputs=cost_display)
-            export_cost_btn.click(export_costs, outputs=gr.Textbox(visible=False))
+            msg_input.submit(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_info, document_cards])
+            send_btn.click(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_info, document_cards])
+            clear_btn.click(clear_chat, outputs=[chatbot_interface, kb_info, document_cards])
+            # refresh_cost_btn.click(refresh_costs, outputs=cost_display)
+            # export_cost_btn.click(export_costs, outputs=gr.Textbox(visible=False))
 
-            
             # Initialize knowledge base info
             interface.load(update_kb_info, outputs=kb_info)
         
@@ -293,7 +253,6 @@ class BabyCareGradioApp:
     def _get_response_with_retrieval_info(self, message):
         """Get response from chatbot and track number of retrieved documents."""
         try:
-            # Use the new method that properly handles both RAG and conversation flow
             conversation_id = "gradio_session"
             response, retrieved_count, retrieved_docs = self.chatbot.stream_chat_with_retrieval_info(message, conversation_id)
             
@@ -301,6 +260,7 @@ class BabyCareGradioApp:
             
         except Exception as e:
             # Fallback to regular chat if the new method fails
+            logger.error(f"Error getting response with retrieval info: {e}. Falling back to regular chat.")
             response = self.chatbot.chat(message)
             return response, 0, []
     
@@ -347,11 +307,11 @@ class BabyCareGradioApp:
     def launch(self, share=False, server_name="0.0.0.0", server_port=7860):
         """Launch the Gradio application."""
         if not self.interface:
-            print("❌ Interface not created")
+            logger.error("Interface not created")
             return
         
-        print("🚀 Launching Baby Care Chatbot Web Interface...")
-        print(f"📱 Local URL: http://{server_name}:{server_port}")
+        logger.info("Launching Baby Care Chatbot Web Interface...")
+        logger.info(f"Local URL: http://{server_name}:{server_port}")
         
         self.interface.launch(
             share=share,
@@ -364,13 +324,13 @@ class BabyCareGradioApp:
 
 def main():
     """Main function to run the Gradio application."""
-    print("👶 Baby Care Chatbot - Gradio Frontend")
+    logger.info("Baby Care Chatbot - Gradio Frontend")
     print("=" * 50)
     
     # Check if OpenAI API key is available
     if not os.getenv("OPENAI_API_KEY"):
-        print("❌ Error: OPENAI_API_KEY not found in environment variables.")
-        print("Please create a .env file with your OpenAI API key.")
+        logger.error("OPENAI_API_KEY not found in environment variables.")
+        logger.info("Please create a .env file with your OpenAI API key.")
         return
     
     try:
@@ -379,9 +339,8 @@ def main():
         app.launch(share=False)
         
     except Exception as e:
-        print(f"❌ Error launching application: {e}")
-        raise
-        print("Please check your configuration and try again.")
+        logger.error(f"Error launching application: {e}")
+        logger.info("Please check your configuration and try again.")
 
 
 if __name__ == "__main__":
