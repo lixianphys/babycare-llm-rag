@@ -80,7 +80,6 @@ class IntegratedBabyCareChatbot:
             else:
                 logger.info(f"Knowledge base already contains {info['document_count']} documents")
         except Exception as e:
-            raise
             logger.error(f"Error initializing knowledge base: {e}")
     
     def _build_integrated_graph(self) -> StateGraph:
