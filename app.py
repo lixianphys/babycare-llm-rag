@@ -303,26 +303,11 @@ class BabyCareGradioApp:
         cards_html += '</div>'
         return cards_html
     
-    def launch(self, share=False, server_name="0.0.0.0", server_port=None):
+    def launch(self, share=False, server_name="0.0.0.0", server_port=7860):
         """Launch the Gradio application."""
         if not self.interface:
             logger.error("Interface not created")
             return
-        
-        # Try to find an available port if none specified
-        if server_port is None:
-            import socket
-            for port in range(7860, 7870):
-                try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        s.bind((server_name, port))
-                        server_port = port
-                        break
-                except OSError:
-                    continue
-            
-            if server_port is None:
-                server_port = 7860  # Fallback to default
         
         logger.info("Launching Baby Care Chatbot Web Interface...")
         logger.info("Local URL: http://{}:{}".format(server_name, server_port))
@@ -363,7 +348,7 @@ def main():
     try:
         # Create and launch the app
         app = BabyCareGradioApp()
-        app.launch(share=False, server_port=None)  # Let it find an available port
+        app.launch(share=False)  # Let it find an available port
         
     except Exception as e:
         logger.error("Error launching application: {}".format(e))
