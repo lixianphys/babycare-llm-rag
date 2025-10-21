@@ -1,124 +1,469 @@
-/* Baby Care Chatbot - Custom Styles */
+/* Baby Care Assistant - Cohere Command Models Style Interface */
 
-.baby-care-header {
-    text-align: center;
-    background: linear-gradient(90deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-.cost-info {
-    background-color: #f0f8ff;
-    padding: 10px;
-    border-radius: 5px;
-    margin: 10px 0;
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #ffffff;
+    color: #333333;
+    line-height: 1.5;
 }
 
+/* Main container layout */
+.main-container {
+    display: flex;
+    min-height: 100vh;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 24px;
+    padding: 24px;
+}
+
+/* Left information panel */
+.info-panel {
+    width: 320px;
+    background-color: #ffffff;
+    border-right: 1px solid #e5e7eb;
+    padding: 24px 0;
+}
+
+.title-section {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.title-icon {
+    font-size: 24px;
+    margin-right: 12px;
+    margin-top: 2px;
+}
+
+.title-text {
+    flex: 1;
+}
+
+.app-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+}
+
+.app-subtitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+}
+
+.version-tag {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-left: 8px;
+}
+
+.description {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.5;
+    margin-bottom: 24px;
+}
+
+/* Main content area */
+.main-content {
+    flex: 1;
+    background-color: #ffffff;
+    padding: 0;
+}
+
+/* Top banner */
+.top-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 12px 0;
+}
+
+.new-tag {
+    background-color: #3b82f6;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.banner-text {
+    font-size: 14px;
+    color: #111827;
+    flex: 1;
+}
+
+.banner-link {
+    font-size: 14px;
+    color: #6b7280;
+    cursor: pointer;
+}
+
+/* Model information box */
+.model-info-box {
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.model-left {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.model-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.model-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.model-icon {
+    font-size: 16px;
+    color: #8b5cf6;
+}
+
+.model-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.model-right {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+}
+
+.settings-icon {
+    font-size: 16px;
+    color: #6b7280;
+    cursor: pointer;
+}
+
+.model-links {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.model-link {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+}
+
+.link-icon {
+    font-size: 12px;
+}
+
+.link-text {
+    text-decoration: underline;
+}
+
+/* Examples section */
+.examples-header {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 16px;
+}
+
+.examples-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.examples-grid .gradio-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.example-btn {
+    background-color: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    padding: 12px 16px !important;
+    font-size: 14px !important;
+    color: #374151 !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    text-align: left !important;
+    line-height: 1.4 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+.example-btn:hover {
+    background-color: #f3f4f6 !important;
+    border-color: #d1d5db !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.example-btn:focus {
+    outline: none !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Chat container */
 .chat-container {
-    max-height: 500px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Input field */
+.main-input {
+    width: 100%;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #111827;
+    margin-bottom: 8px;
+}
+
+.main-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.main-input::placeholder {
+    color: #9ca3af;
+}
+
+/* Footer */
+.footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 8px;
+}
+
+.footer-text {
+    cursor: pointer;
+}
+
+.footer-warning {
+    color: #9ca3af;
+}
+
+/* Knowledge base and document displays */
+.kb-info, .doc-cards {
+    width: 100%;
+    margin: 16px 0;
+}
+
+.kb-display, .doc-display {
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 14px;
+    color: #374151;
+}
+
+/* Document cards */
+.document-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 300px;
     overflow-y: auto;
 }
 
 .document-card {
     background-color: #ffffff;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 12px;
-    margin: 8px 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: box-shadow 0.2s ease;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s;
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
 }
 
 .document-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .document-content {
     font-size: 14px;
-    line-height: 1.4;
-    color: #333;
+    line-height: 1.5;
+    color: #374151;
     margin-bottom: 8px;
-    max-height: 100px;
+    flex: 1;
     overflow-y: auto;
+    max-height: 200px;
+    padding-right: 8px;
+    border-right: 1px solid #f3f4f6;
+}
+
+.document-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.document-content::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.document-content::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.document-content::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 
 .document-source {
     font-size: 12px;
-    color: #666;
-    border-top: 1px solid #f0f0f0;
+    color: #6b7280;
+    border-top: 1px solid #f3f4f6;
     padding-top: 8px;
-    font-style: italic;
 }
 
-.document-cards-container {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-/* Additional responsive styles */
+/* Responsive design */
 @media (max-width: 768px) {
-    .document-card {
-        padding: 8px;
-        margin: 6px 0;
+    .main-container {
+        flex-direction: column;
+        padding: 16px;
+        gap: 16px;
     }
     
-    .document-content {
-        font-size: 13px;
-        max-height: 80px;
+    .info-panel {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 16px 0;
     }
     
-    .document-cards-container {
-        max-height: 300px;
+    .examples-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .model-info-box {
+        position: relative;
+    }
+    
+    .model-right {
+        position: static;
+        margin-top: 8px;
     }
 }
 
-/* Balanced layout styles */
+@media (max-width: 480px) {
+    .main-container {
+        padding: 12px;
+    }
+    
+    .title-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .version-tag {
+        margin-left: 0;
+        align-self: flex-start;
+    }
+    
+    .top-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+/* Gradio specific overrides */
 .gradio-container {
-    max-width: 1400px;
-    margin: 0 auto;
+    max-width: none !important;
+    padding: 0 !important;
 }
 
-/* Sidebar panel spacing */
-.gradio-group {
-    margin-bottom: 15px;
+.gradio-row {
+    margin: 0 !important;
 }
 
-/* Better spacing for nested columns */
-.gradio-row .gradio-column {
-    padding: 0 5px;
+.gradio-column {
+    padding: 0 !important;
 }
 
-/* Improved button spacing */
+/* Hide default Gradio styling */
 .gradio-button {
-    margin: 2px;
+    display: none !important;
 }
 
-/* Better examples styling */
-.gradio-examples {
-    max-height: 200px;
-    overflow-y: auto;
+.gradio-textbox {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 
-/* Button hover effects */
-.gradio-button:hover {
-    transform: translateY(-1px);
-    transition: transform 0.2s ease;
-}
-
-/* Input field focus effects */
 .gradio-textbox:focus {
-    border-color: #ff9a9e;
-    box-shadow: 0 0 0 2px rgba(255, 154, 158, 0.2);
+    border: none !important;
+    box-shadow: none !important;
 }
 
 /* Chat message styling */
 .user-message {
-    background-color: #e3f2fd;
-    border-left: 4px solid #2196f3;
+    background-color: #f0f9ff;
+    border-left: 4px solid #0ea5e9;
+    padding: 12px 16px;
+    margin: 8px 0;
+    border-radius: 8px;
 }
 
 .bot-message {
-    background-color: #f3e5f5;
-    border-left: 4px solid #9c27b0;
+    background-color: #f0fdf4;
+    border-left: 4px solid #22c55e;
+    padding: 12px 16px;
+    margin: 8px 0;
+    border-radius: 8px;
 }

@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 import logging
 load_dotenv()
 
+
+VERSION = "0.1.0"
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,10 +51,13 @@ class BabyCareGradioApp:
             self.total_documents = kb_info.get('document_count', 0)
             
             logger.info("Baby Care Chatbot initialized successfully")
-            logger.info(f"Total documents in knowledge base: {self.total_documents}")
-            logger.info("Conversation storage enabled")
+            logger.info("Total documents in knowledge base: {}".format(self.total_documents))
+            if STORE_CONVERSATION:
+                logger.info("Conversation storage enabled")
+            else:
+                logger.info("Conversation storage disabled")
         except Exception as e:
-            logger.error(f"Error initializing chatbot: {e}")
+            logger.error("Error initializing chatbot: {}".format(e))
             self.chatbot = None
     
     def _load_css(self):
@@ -60,10 +66,10 @@ class BabyCareGradioApp:
             with open(css_file_path, 'r', encoding='utf-8') as f:
                 return f.read()
         except FileNotFoundError:
-            logger.warning(f"CSS file not found at {css_file_path}")
+            logger.warning("CSS file not found at {}".format(css_file_path))
             return ""
         except Exception as e:
-            logger.warning(f"Error loading CSS file: {e}")
+            logger.warning("Error loading CSS file: {}".format(e))
             return ""
     
     def _create_interface(self):
@@ -72,88 +78,104 @@ class BabyCareGradioApp:
         # Load CSS from external file
         css = self._load_css()
         
-        with gr.Blocks(css=css, title="Baby Care Chatbot", theme=gr.themes.Soft()) as interface:
+        with gr.Blocks(css=css, title="Baby Care Assistant", theme=gr.themes.Default()) as interface:
             
-            # Header
-            gr.HTML("""
-            <div class="baby-care-header">
-                <h1>Baby Care Chatbot</h1>
-                <p>Your expert guide for pregnancy, baby care, nutrition, healthcare, and development. Data used for RAG system is mainly from https://www.medicinesinpregnancy.org and https://mothertobaby.org. This chatbot is not a medical professional and should not be used as a substitute for professional medical advice.</p>
-            </div>
-            """)
-            
-            with gr.Row():
-                with gr.Column(scale=2):
-                    # Chat interface
+            # Main layout with information panel and content area
+            with gr.Row(elem_classes=["main-container"]):
+                # Left information panel
+                with gr.Column(scale=1, elem_classes=["info-panel"]):
+                    # Title section with icon and name
+                    gr.HTML("""
+                    <div class="title-section">
+                        <div class="title-icon">💬</div>
+                        <div class="title-text">
+                            <div class="app-name">Baby Care</div>
+                            <div class="app-subtitle">Assistant</div>
+                        </div>
+                        <div class="version-tag">v{}</div>
+                    </div>
+                    """.format(VERSION))
+                    
+                    # Description
+                    gr.HTML("""
+                    <div class="description">
+                        Baby Care Assistant is optimized for pregnancy, baby care, nutrition, and child development questions. 
+                        Developed with medical literature from MotherToBaby.org and MedicinesInPregnancy.org.
+                    </div>
+                    """)
+                
+                # Main content area
+                with gr.Column(scale=2, elem_classes=["main-content"]):
+                    
+                    # Examples section
+                    gr.HTML('<div class="examples-header">Examples</div>')
+                    
+                    # Example buttons grid (reduced to 6 examples)
+                    with gr.Row(elem_classes=["examples-grid"]):
+                        with gr.Column():
+                            example1 = gr.Button("What should I eat during pregnancy?", elem_classes=["example-btn"])
+                            example2 = gr.Button("How to soothe a crying baby?", elem_classes=["example-btn"])
+                        with gr.Column():
+                            example3 = gr.Button("Is it safe to take medication while breastfeeding?", elem_classes=["example-btn"])
+                            example4 = gr.Button("What are the signs of colic in babies?", elem_classes=["example-btn"])
+                        with gr.Column():
+                            example5 = gr.Button("How to establish a sleep routine for newborns?", elem_classes=["example-btn"])
+                            example6 = gr.Button("What vaccines are safe during pregnancy?", elem_classes=["example-btn"])
+                    
+                    # Chat interface (always visible)
                     chatbot_interface = gr.Chatbot(
-                        label="Chat with the baby care expert",
+                        value=[],
                         type="tuples",
-                        height=500,
-                        show_label=True,
+                        height=300,
+                        show_label=False,
                         container=True,
-                        elem_classes=["chat-container"]
+                        elem_classes=["chat-container"],
+                        visible=True
                     )
                     
-                    with gr.Row():
-                        msg_input = gr.Textbox(
-                            placeholder="Ask me anything about baby care...",
-                            label="Your Question",
-                            lines=2,
-                            scale=4
-                        )
-                        send_btn = gr.Button("Send", variant="primary", scale=1)
+                    # Input field
+                    msg_input = gr.Textbox(
+                        placeholder="Ask anything",
+                        show_label=False,
+                        lines=1,
+                        elem_classes=["main-input"]
+                    )
                     
-                    # Clear button
-                    clear_btn = gr.Button("Clear Chat", variant="secondary")
-                
-                with gr.Column(scale=2):
-                    # Top row: Cost monitoring and knowledge base
-                    with gr.Row():                        
-                        with gr.Column(scale=1):
-                            # Knowledge base info
-                            with gr.Group():
-                                gr.Markdown("### Knowledge Base")
-                                kb_info = gr.HTML("""
-                                <div class="cost-info">
-                                    <p><strong>Documents:</strong> Loading...</p>
-                                    <p><strong>Categories:</strong> nutrition, sleep, development, safety, health</p>
-                                </div>
-                                """)
+                    # Footer
+                    gr.HTML("""
+                    <div class="footer">
+                        <span class="footer-warning">Generated content may be inaccurate or false.</span>
+                    </div>
+                    """)
                     
-                    # Document cards panel (full width)
-                    with gr.Group():
-                        gr.Markdown("### Retrieved Documents")
-                        document_cards = gr.HTML("""
-                        <div class="cost-info">
-                            <p><em>Documents will appear here when used for answers</em></p>
+                    # Knowledge base info (always visible)
+                    with gr.Column(elem_classes=["kb-info"], visible=True) as kb_section:
+                        kb_info = gr.HTML("""
+                        <div class="kb-display">
+                            <p><strong>Knowledge Base:</strong> {self.total_documents} documents</p>
+                            <p><strong>Used for Answer:</strong> 0 documents</p>
                         </div>
                         """)
                     
-                    # Bottom row: Frequently Asked Questions
-                    with gr.Row():  
-                        with gr.Column(scale=1):
-                            with gr.Group():
-                                gr.Markdown("### Frequently Asked Questions")
-                                sample_questions = gr.Examples(
-                                    examples=[
-                                        "should I drink coffee during pregnancy?",
-                                        "How will albuterol affect pregnancy and breastfeeding?",
-                                        "What are the signs of colic in babies?",
-                                        "Does a COVID-19 infection have any negative effect on babies?",
-                                    ],
-                                    inputs=msg_input,
-                                    label="Ask a question"
-                                )
+                    # Document cards (always visible)
+                    with gr.Column(elem_classes=["doc-cards"], visible=True) as doc_section:
+                        document_cards = gr.HTML("""
+                        <div class="doc-display">
+                            <p><em>Retrieved documents will appear here when you ask a question</em></p>
+                        </div>
+                        """)
                         
             
             # Event handlers
             def respond(message, history):
                 """Handle user input and generate response."""
                 if not message.strip():
-                    return "", history, "Please enter a question.", "", ""
+                    return "", history, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
                 
                 if not self.chatbot:
-                    return "", history, " Chatbot not initialized. Please check your configuration.", "", ""
+                    error_msg = "❌ Chatbot not initialized. Please check your configuration."
+                    history.append([message, error_msg])
+                    return "", history, gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
                 
                 try:
                     # Generate response and get retrieval info
@@ -164,97 +186,59 @@ class BabyCareGradioApp:
                     history.append([message, response])
                     
                     # Update knowledge base info
-                    kb_html = f"""
-                    <div class="cost-info">
-                        <p><strong>Total Documents:</strong> {self.total_documents}</p>
-                        <p><strong>Used for Answer:</strong> {self.current_retrieved_count}</p>
-                        <p><strong>Categories:</strong> nutrition, sleep, development, safety, health</p>
+                    kb_html = """
+                    <div class="kb-display">
+                        <p><strong>Knowledge Base:</strong> {} documents</p>
+                        <p><strong>Used for Answer:</strong> {} documents</p>
                     </div>
-                    """
+                    """.format(self.total_documents, self.current_retrieved_count)
                     
                     # Create document cards
                     if retrieved_docs and len(retrieved_docs) > 0:
                         cards_html = self._create_document_cards(retrieved_docs)
                     else:
                         cards_html = """
-                        <div class="cost-info">
+                        <div class="doc-display">
                             <p><em>No documents retrieved for this answer</em></p>
                         </div>
                         """
                     
-                    return "", history, kb_html, cards_html
+                    return "", history, gr.update(visible=True), gr.update(value=kb_html, visible=True), gr.update(visible=True), gr.update(value=cards_html, visible=True)
                     
                 except Exception as e:
-                    error_msg = f"❌ Error: {str(e)}"
+                    error_msg = "❌ Error: {}".format(str(e))
                     history.append([message, error_msg])
-                    return "", history, "Error occurred. Please try again.", "", ""
+                    return "", history, gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
             
             def clear_chat():
                 """Clear the chat history and reset the knowledge base info and document cards."""
                 self.current_retrieved_count = 0
                 
-                kb_info_html = f"""
-                <div class="cost-info">
-                    <p><strong>Total Documents:</strong> {self.total_documents}</p>
-                    <p><strong>Used for Answer:</strong> 0</p>
-                    <p><strong>Categories:</strong> nutrition, sleep, development, safety, health</p>
+                kb_info_html = """
+                <div class="kb-display">
+                    <p><strong>Knowledge Base:</strong> {} documents</p>
+                    <p><strong>Used for Answer:</strong> 0 documents</p>
                 </div>
-                """
+                """.format(self.total_documents)
                 
                 cards_html = """
-                <div class="cost-info">
-                    <p><em>Documents will appear here when used for answers</em></p>
+                <div class="doc-display">
+                    <p><em>Retrieved documents will appear here</em></p>
                 </div>
                 """
                 
-                return [], kb_info_html, cards_html
+                return [], gr.update(visible=False), gr.update(value=kb_info_html, visible=False), gr.update(visible=False), gr.update(value=cards_html, visible=False)
             
-            # def refresh_costs():
-            #     """Refresh the cost display."""
-            #     if not self.chatbot:
-            #         return "Chatbot not available"
-                
-            #     cost_summary = self.chatbot.get_cost_summary()
-            #     return f"""
-            #     <div class="cost-info">
-            #         <p><strong>Session Cost:</strong> ${cost_summary.get('total_cost', 0):.4f}</p>
-            #         <p><strong>Total Queries:</strong> {cost_summary.get('total_calls', 0)}</p>
-            #         <p><strong>Total Tokens:</strong> {cost_summary.get('total_tokens', 0):,}</p>
-            #     </div>
-            #     """
-            
-            # def export_costs():
-            #     """Export cost data."""
-            #     if not self.chatbot:
-            #         return "Chatbot not available"
-                
-            #     try:
-            #         filename = self.chatbot.export_cost_data()
-            #         if filename:
-            #             return f" Cost data exported to: {filename}"
-            #         else:
-            #             return "Failed to export cost data"
-            #     except Exception as e:
-            #         return f"Error exporting: {str(e)}"
-            
-            def update_kb_info():
-                """Update knowledge base information."""
-                return f"""
-                <div class="cost-info">
-                    <p><strong>Total Documents:</strong> {self.total_documents}</p>
-                    <p><strong>Used for Answer:</strong> 0</p>
-                    <p><strong>Categories:</strong> nutrition, sleep, development, safety, health</p>
-                </div>
-                """
             # Connect event handlers
-            msg_input.submit(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_info, document_cards])
-            send_btn.click(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_info, document_cards])
-            clear_btn.click(clear_chat, outputs=[chatbot_interface, kb_info, document_cards])
-            # refresh_cost_btn.click(refresh_costs, outputs=cost_display)
-            # export_cost_btn.click(export_costs, outputs=gr.Textbox(visible=False))
-
-            # Initialize knowledge base info
-            interface.load(update_kb_info, outputs=kb_info)
+            msg_input.submit(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            
+            # Connect example button handlers
+            example1.click(lambda: "What should I eat during pregnancy?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            example2.click(lambda: "How to soothe a crying baby?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            example3.click(lambda: "Is it safe to take medication while breastfeeding?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            example4.click(lambda: "What are the signs of colic in babies?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            example5.click(lambda: "How to establish a sleep routine for newborns?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            example6.click(lambda: "What vaccines are safe during pregnancy?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
         
         return interface
     
@@ -273,7 +257,7 @@ class BabyCareGradioApp:
             
         except Exception as e:
             # Fallback to regular chat if the new method fails
-            logger.error(f"Error getting response with retrieval info: {e}. Falling back to regular chat.")
+            logger.error("Error getting response with retrieval info: {}. Falling back to regular chat.".format(e))
             conversation_id = "gradio_session"
             user_id = "gradio_user"
             response = self.chatbot.chat(message, conversation_id, user_id)
@@ -283,7 +267,7 @@ class BabyCareGradioApp:
         """Create HTML cards for displaying retrieved documents."""
         if not documents:
             return """
-            <div class="cost-info">
+            <div class="doc-display">
                 <p><em>No documents retrieved</em></p>
             </div>
             """
@@ -294,39 +278,54 @@ class BabyCareGradioApp:
             content = doc.get('content', '')
             metadata = doc.get('metadata', {})
             
-            # Truncate content for display
-            display_content = content[:500] + "..." if len(content) > 500 else content
+            # Show more content for scrolling (up to 1000 characters)
+            display_content = content[:1000] + "..." if len(content) > 1000 else content
             
             # Get source information
             source = metadata.get('source', 'Unknown')
             category = metadata.get('category', 'General')
             
             # Create card HTML
-            card_html = f"""
+            card_html = """
             <div class="document-card">
                 <div class="document-content">
-                    <strong>Document {i}:</strong><br>
-                    {display_content}
+                    <strong>Document {}:</strong><br>
+                    {}
                 </div>
                 <div class="document-source">
-                    📄 Source: {source} | Category: {category}
+                    📄 Source: {} | Category: {}
                 </div>
             </div>
-            """
+            """.format(i, display_content, source, category)
             
             cards_html += card_html
         
         cards_html += '</div>'
         return cards_html
     
-    def launch(self, share=False, server_name="0.0.0.0", server_port=7860):
+    def launch(self, share=False, server_name="0.0.0.0", server_port=None):
         """Launch the Gradio application."""
         if not self.interface:
             logger.error("Interface not created")
             return
         
+        # Try to find an available port if none specified
+        if server_port is None:
+            import socket
+            for port in range(7860, 7870):
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.bind((server_name, port))
+                        server_port = port
+                        break
+                except OSError:
+                    continue
+            
+            if server_port is None:
+                server_port = 7860  # Fallback to default
+        
         logger.info("Launching Baby Care Chatbot Web Interface...")
-        logger.info(f"Local URL: http://{server_name}:{server_port}")
+        logger.info("Local URL: http://{}:{}".format(server_name, server_port))
         
         try:
             self.interface.launch(
@@ -340,7 +339,7 @@ class BabyCareGradioApp:
             logger.info("Shutting down application...")
             self._cleanup()
         except Exception as e:
-            logger.error(f"Error during application launch: {e}")
+            logger.error("Error during application launch: {}".format(e))
             self._cleanup()
     
     def _cleanup(self):
@@ -364,10 +363,10 @@ def main():
     try:
         # Create and launch the app
         app = BabyCareGradioApp()
-        app.launch(share=False)
+        app.launch(share=False, server_port=None)  # Let it find an available port
         
     except Exception as e:
-        logger.error(f"Error launching application: {e}")
+        logger.error("Error launching application: {}".format(e))
         logger.info("Please check your configuration and try again.")
 
 

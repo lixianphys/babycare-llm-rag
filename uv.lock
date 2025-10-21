@@ -248,7 +248,6 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "sentence-transformers" },
-    { name = "tinydb" },
 ]
 
 [package.dev-dependencies]
@@ -256,6 +255,7 @@ dev = [
     { name = "chromadb" },
     { name = "deepeval" },
     { name = "qdrant-client" },
+    { name = "tinydb" },
 ]
 
 [package.metadata]
@@ -273,7 +273,6 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.2.1" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "sentence-transformers", specifier = ">=2.6.0" },
-    { name = "tinydb", specifier = ">=4.8.2" },
 ]
 
 [package.metadata.requires-dev]
@@ -281,6 +280,7 @@ dev = [
     { name = "chromadb", specifier = ">=1.0.13" },
     { name = "deepeval", specifier = ">=3.6.7" },
     { name = "qdrant-client", specifier = ">=1.12.1" },
+    { name = "tinydb", specifier = ">=4.8.2" },
 ]
 
 [[package]]
