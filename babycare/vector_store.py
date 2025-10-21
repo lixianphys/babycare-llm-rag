@@ -415,6 +415,9 @@ class BabyCareVectorStore:
         Returns:
             List[Document]: List of relevant documents
         """
+        if k < 1:
+            logger.warning(f"search_documents: k: {k} < 1. Returning empty list.")
+            return []
         try:
             # Perform similarity search
             if filter_metadata:
