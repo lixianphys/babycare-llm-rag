@@ -252,6 +252,25 @@ body {
     overflow-y: auto;
 }
 
+/* Typing indicator */
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    color: #6b7280;
+    font-style: italic;
+    font-size: 14px;
+}
+
+.typing-indicator::after {
+    content: "...";
+    animation: typing 1.5s infinite;
+}
+
+@keyframes typing {
+    0%, 60%, 100% { opacity: 0; }
+    30% { opacity: 1; }
+}
+
 /* Input field */
 .main-input {
     width: 100%;

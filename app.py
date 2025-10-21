@@ -177,13 +177,19 @@ class BabyCareGradioApp:
                     history.append([message, error_msg])
                     return "", history, gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
                 
+                # First, show the user's message immediately with typing indicator
+                history.append([message, "🤖 Thinking..."])  # Show typing indicator
+                
+                # Return immediately to show the user's message and typing indicator
+                yield "", history, gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
+                
                 try:
                     # Generate response and get retrieval info
                     response, retrieved_count, retrieved_docs = self._get_response_with_retrieval_info(message)
                     self.current_retrieved_count = retrieved_count
                     
-                    # Update chat history
-                    history.append([message, response])
+                    # Update chat history with the actual response
+                    history[-1] = [message, response]  # Replace the typing indicator with actual response
                     
                     # Update knowledge base info
                     kb_html = """
@@ -203,12 +209,12 @@ class BabyCareGradioApp:
                         </div>
                         """
                     
-                    return "", history, gr.update(visible=True), gr.update(value=kb_html, visible=True), gr.update(visible=True), gr.update(value=cards_html, visible=True)
+                    yield "", history, gr.update(visible=True), gr.update(value=kb_html, visible=True), gr.update(visible=True), gr.update(value=cards_html, visible=True)
                     
                 except Exception as e:
                     error_msg = "❌ Error: {}".format(str(e))
-                    history.append([message, error_msg])
-                    return "", history, gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
+                    history[-1] = [message, error_msg]  # Replace typing indicator with error message
+                    yield "", history, gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
             
             def clear_chat():
                 """Clear the chat history and reset the knowledge base info and document cards."""
@@ -229,16 +235,16 @@ class BabyCareGradioApp:
                 
                 return [], gr.update(visible=False), gr.update(value=kb_info_html, visible=False), gr.update(visible=False), gr.update(value=cards_html, visible=False)
             
-            # Connect event handlers
-            msg_input.submit(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            # Connect event handlers with streaming
+            msg_input.submit(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards], show_progress=True)
             
-            # Connect example button handlers
-            example1.click(lambda: "What should I eat during pregnancy?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
-            example2.click(lambda: "How to soothe a crying baby?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
-            example3.click(lambda: "Is it safe to take medication while breastfeeding?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
-            example4.click(lambda: "What are the signs of colic in babies?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
-            example5.click(lambda: "How to establish a sleep routine for newborns?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
-            example6.click(lambda: "What vaccines are safe during pregnancy?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards])
+            # Connect example button handlers with streaming
+            example1.click(lambda: "What should I eat during pregnancy?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards], show_progress=True)
+            example2.click(lambda: "How to soothe a crying baby?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards], show_progress=True)
+            example3.click(lambda: "Is it safe to take medication while breastfeeding?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards], show_progress=True)
+            example4.click(lambda: "What are the signs of colic in babies?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards], show_progress=True)
+            example5.click(lambda: "How to establish a sleep routine for newborns?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards], show_progress=True)
+            example6.click(lambda: "What vaccines are safe during pregnancy?", outputs=msg_input).then(respond, inputs=[msg_input, chatbot_interface], outputs=[msg_input, chatbot_interface, kb_section, kb_info, doc_section, document_cards], show_progress=True)
         
         return interface
     
