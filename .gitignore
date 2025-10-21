@@ -1,5 +1,6 @@
 .env
 .venv
+.json
 __pycache__
 cli_app.py
 setup_knowledge_base.py

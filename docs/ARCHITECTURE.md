@@ -7,7 +7,6 @@ This document outlines the high-level architecture of the Integrated Baby Care C
 - **BabyCareRAGSystem**: Generates responses using retrieved context; integrates optional `LangSmithMonitor` for usage/cost tracking.
 - **Vector Store**: `SimpleBabyCareVectorStore` (in-memory) or `BabyCareVectorStore` (persistent) selected via `config.use_memory_vector_store`.
 - **Knowledge Base**: Ingested from PDFs and other files, or seeded via `create_sample_baby_care_documents()`.
-- **Scripts**: `scripts/scripts_llm.py` shows prompt chaining examples with `ChatOpenAI` (auxiliary, not on critical path).
 
 ### High-level Architecture
 ```mermaid

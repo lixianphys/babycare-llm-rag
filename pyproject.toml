@@ -23,3 +23,11 @@ dependencies = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "deepeval>=3.6.7",
+    "chromadb>=1.0.13",
+    "qdrant-client>=1.12.1",
+    "tinydb>=4.8.2",
+]

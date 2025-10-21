@@ -9,7 +9,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langgraph.graph import StateGraph, START, END
 
 from .chat_flow import BabyCareState
@@ -17,6 +17,7 @@ from ._in_memory_vector_store import SimpleBabyCareVectorStore, create_sample_ba
 from .vector_store import BabyCareVectorStore, create_sample_baby_care_documents
 from .rag_system import BabyCareRAGSystem, RAGConfig
 from .langsmith_monitor import LangSmithMonitor
+from .conversation_storage import ConversationStorage
 from .config import config
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +35,9 @@ class IntegratedBabyCareChatbot:
     def __init__(self, 
                  rag_config: Optional[RAGConfig] = None,
                  auto_initialize_kb: bool = True,
-                 enable_monitoring: bool = True):
+                 enable_monitoring: bool = True,
+                 enable_conversation_storage: bool = True,
+                 conversation_db_path: str = "conversations.json"):
         """
         Initialize the integrated chatbot with all components.
         
@@ -42,12 +45,18 @@ class IntegratedBabyCareChatbot:
             rag_config (Optional[RAGConfig]): RAG system configuration
             auto_initialize_kb (bool): Whether to automatically initialize knowledge base
             enable_monitoring (bool): Whether to enable LangSmith monitoring
+            enable_conversation_storage (bool): Whether to enable conversation storage
+            conversation_db_path (str): Path to conversation database file
         """
         self.rag_config = rag_config or RAGConfig()
         self.enable_monitoring = enable_monitoring
+        self.enable_conversation_storage = enable_conversation_storage
         
         # Initialize monitoring
         self.monitor = LangSmithMonitor("baby-care-chatbot") if enable_monitoring else None
+        
+        # Initialize conversation storage
+        self.conversation_storage = ConversationStorage(conversation_db_path) if enable_conversation_storage else None
         
         # Initialize components
         self.vector_store = SimpleBabyCareVectorStore() if config.use_memory_vector_store else BabyCareVectorStore(index_name=config.index_name_vector_store)
@@ -325,20 +334,33 @@ class IntegratedBabyCareChatbot:
         logger.info("Generated fallback response")
         return state
     
-    def chat(self, user_input: str, conversation_id: str = "default") -> str:
+    def chat(self, user_input: str, conversation_id: str = "default", user_id: Optional[str] = None) -> str:
         """
         Process a user input and return the chatbot's response.
         
         Args:
             user_input (str): The user's message
             conversation_id (str): Unique identifier for the conversation
+            user_id (Optional[str]): User identifier for conversation storage
             
         Returns:
             str: The chatbot's response
         """
-        # Create initial state
+        # Start conversation if storage is enabled
+        if self.conversation_storage:
+            # Check if conversation exists, if not start a new one
+            existing_metadata = self.conversation_storage.get_conversation_metadata(conversation_id)
+            if not existing_metadata:
+                self.conversation_storage.start_conversation(conversation_id, user_id)
+        
+        # Get conversation history if available
+        chat_history = []
+        if self.conversation_storage:
+            chat_history = self.conversation_storage.get_conversation_history(conversation_id, limit=10)
+        
+        # Create initial state with history
         initial_state = {
-            "messages": [HumanMessage(content=user_input)],
+            "messages": chat_history + [HumanMessage(content=user_input)],
             "user_context": {},
             "conversation_id": conversation_id,
             "session_start_time": datetime.now().isoformat(),
@@ -350,9 +372,25 @@ class IntegratedBabyCareChatbot:
         # Process through the integrated graph
         result = self.graph.invoke(initial_state)
         
-        # Return the last AI message
-        last_message = result["messages"][-1]
-        return last_message.content
+        # Get the AI response
+        ai_message = result["messages"][-1]
+        ai_response = ai_message.content
+        
+        # Store the conversation turn
+        if self.conversation_storage:
+            # Determine if RAG was used
+            rag_used = result.get("should_use_rag", False)
+            retrieval_info = result.get("retrieval_info", {})
+            
+            self.conversation_storage.save_conversation_turn(
+                conversation_id=conversation_id,
+                user_message=user_input,
+                ai_response=ai_response,
+                retrieval_info=retrieval_info,
+                rag_used=rag_used
+            )
+        
+        return ai_response
     
     def stream_chat(self, user_input: str, conversation_id: str = "default"):
         """
@@ -384,20 +422,33 @@ class IntegratedBabyCareChatbot:
                     if isinstance(last_message, AIMessage):
                         yield last_message.content
     
-    def stream_chat_with_retrieval_info(self, user_input: str, conversation_id: str = "default"):
+    def stream_chat_with_retrieval_info(self, user_input: str, conversation_id: str = "default", user_id: Optional[str] = None):
         """
-        Stream the chatbot's response and return retrieved documents.
+        Stream the chatbot's response and return retrieved documents with conversation storage.
         
         Args:
             user_input (str): The user's message
             conversation_id (str): Unique identifier for the conversation
+            user_id (Optional[str]): User identifier for conversation storage
             
         Returns:
             Tuple[str, int, List[Dict]]: Response text, number of documents used, and document details
         """
+        # Start conversation if storage is enabled
+        if self.conversation_storage:
+            # Check if conversation exists, if not start a new one
+            existing_metadata = self.conversation_storage.get_conversation_metadata(conversation_id)
+            if not existing_metadata:
+                self.conversation_storage.start_conversation(conversation_id, user_id)
+        
+        # Get conversation history if available
+        chat_history = []
+        if self.conversation_storage:
+            chat_history = self.conversation_storage.get_conversation_history(conversation_id, limit=10)
+        
         # Use the same RAG decision logic as the chat flow
         state = {
-            "messages": [HumanMessage(content=user_input)],
+            "messages": chat_history + [HumanMessage(content=user_input)],
             "needs_clarification": False,
             "clarification_question": "",
             "should_use_rag": False
@@ -414,6 +465,17 @@ class IntegratedBabyCareChatbot:
             # Get the actual retrieved documents for display
             retrieved_docs = self.search_knowledge_base(user_input, k=documents_used)
             
+            # Store the conversation turn
+            if self.conversation_storage:
+                retrieval_info = {"documents_used": documents_used, "retrieved_docs": retrieved_docs}
+                self.conversation_storage.save_conversation_turn(
+                    conversation_id=conversation_id,
+                    user_message=user_input,
+                    ai_response=response,
+                    retrieval_info=retrieval_info,
+                    rag_used=True
+                )
+            
             return response, documents_used, retrieved_docs
         else:
             # Use conversation flow for non-RAG queries
@@ -422,6 +484,17 @@ class IntegratedBabyCareChatbot:
                 response_chunks.append(chunk)
             
             response = "".join(response_chunks)
+            
+            # Store the conversation turn
+            if self.conversation_storage:
+                self.conversation_storage.save_conversation_turn(
+                    conversation_id=conversation_id,
+                    user_message=user_input,
+                    ai_response=response,
+                    retrieval_info={},
+                    rag_used=False
+                )
+            
             return response, 0, []
     
     def add_documents(self, documents: List[Dict[str, Any]]) -> int:
@@ -643,6 +716,94 @@ class IntegratedBabyCareChatbot:
         except Exception as e:
             logger.error(f"Error in chat_with_retrieval_info: {e}")
             return "I apologize, but I'm having trouble processing your request right now. Please try again later.", 0
+    
+    def get_conversation_history(self, conversation_id: str, limit: Optional[int] = None) -> List[BaseMessage]:
+        """
+        Get conversation history for a specific conversation.
+        
+        Args:
+            conversation_id (str): Conversation identifier
+            limit (Optional[int]): Maximum number of messages to retrieve
+            
+        Returns:
+            List[BaseMessage]: LangChain message objects
+        """
+        if self.conversation_storage:
+            return self.conversation_storage.get_conversation_history(conversation_id, limit)
+        return []
+    
+    def list_conversations(self, user_id: Optional[str] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        List conversations with optional filtering.
+        
+        Args:
+            user_id (Optional[str]): Filter by user ID
+            limit (Optional[int]): Maximum number of conversations to return
+            
+        Returns:
+            List[Dict[str, Any]]: List of conversation metadata
+        """
+        if self.conversation_storage:
+            return self.conversation_storage.list_conversations(user_id, limit)
+        return []
+    
+    def get_conversation_stats(self, conversation_id: str) -> Dict[str, Any]:
+        """
+        Get statistics for a conversation.
+        
+        Args:
+            conversation_id (str): Conversation identifier
+            
+        Returns:
+            Dict[str, Any]: Conversation statistics
+        """
+        if self.conversation_storage:
+            return self.conversation_storage.get_conversation_stats(conversation_id)
+        return {}
+    
+    def search_conversations(self, query_text: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Search conversations by message content.
+        
+        Args:
+            query_text (str): Search query
+            user_id (Optional[str]): Filter by user ID
+            
+        Returns:
+            List[Dict[str, Any]]: Matching conversations with snippets
+        """
+        if self.conversation_storage:
+            return self.conversation_storage.search_conversations(query_text, user_id)
+        return []
+    
+    def export_conversation(self, conversation_id: str, format: str = 'json') -> str:
+        """
+        Export a conversation to a file.
+        
+        Args:
+            conversation_id (str): Conversation identifier
+            format (str): Export format ('json' or 'txt')
+            
+        Returns:
+            str: Path to exported file
+        """
+        if self.conversation_storage:
+            return self.conversation_storage.export_conversation(conversation_id, format)
+        return ""
+    
+    def end_conversation(self, conversation_id: str) -> bool:
+        """
+        End a conversation session.
+        
+        Args:
+            conversation_id (str): Conversation identifier
+            
+        Returns:
+            bool: True if ended successfully
+        """
+        if self.conversation_storage:
+            return self.conversation_storage.end_conversation(conversation_id)
+        return False
 
 
 def main():
@@ -651,8 +812,11 @@ def main():
     """
     print("Initializing Integrated Baby Care Chatbot...")
     
-    # Initialize the integrated chatbot
-    chatbot = IntegratedBabyCareChatbot()
+    # Initialize the integrated chatbot with conversation storage
+    chatbot = IntegratedBabyCareChatbot(
+        enable_conversation_storage=True,
+        conversation_db_path="babycare_conversations.json"
+    )
     
     # Get knowledge base info
     kb_info = chatbot.get_knowledge_base_info()
@@ -668,9 +832,12 @@ def main():
     print("• Safety and childproofing")
     print("• Common concerns and troubleshooting")
     print("\nType 'quit', 'exit', or 'q' to end the conversation.")
+    print("Type 'stats' to see conversation statistics.")
+    print("Type 'history' to see conversation history.")
     print("="*60 + "\n")
     
     conversation_id = "integrated_session"
+    user_id = "demo_user"
     
     while True:
         try:
@@ -680,20 +847,41 @@ def main():
                 continue
                 
             if user_input.lower() in ["quit", "exit", "q"]:
+                # End the conversation
+                chatbot.end_conversation(conversation_id)
                 print("\n👶 Goodbye! Take care of your little one! 👶")
                 break
             
+            # Handle special commands
+            if user_input.lower() == "stats":
+                stats = chatbot.get_conversation_stats(conversation_id)
+                print(f"\n📊 Conversation Statistics:")
+                for key, value in stats.items():
+                    print(f"  {key}: {value}")
+                continue
+            
+            if user_input.lower() == "history":
+                history = chatbot.get_conversation_history(conversation_id, limit=5)
+                print(f"\n📜 Recent Conversation History ({len(history)} messages):")
+                for i, msg in enumerate(history[-5:], 1):
+                    role = "👤 User" if msg.__class__.__name__ == "HumanMessage" else "🤖 Assistant"
+                    print(f"  {i}. {role}: {msg.content[:100]}...")
+                continue
+            
             print("Assistant: ", end="", flush=True)
             
-            # Stream the response
-            response_chunks = []
-            for chunk in chatbot.stream_chat(user_input, conversation_id):
-                print(chunk, end="", flush=True)
-                response_chunks.append(chunk)
+            # Get AI response with conversation storage
+            response = chatbot.chat(
+                user_input=user_input,
+                conversation_id=conversation_id,
+                user_id=user_id
+            )
             
-            print("\n")  # New line after response
+            print(response)
+            print()  # New line after response
             
         except KeyboardInterrupt:
+            chatbot.end_conversation(conversation_id)
             print("\n\n👶 Goodbye! Take care of your little one! 👶")
             break
         except Exception as e:

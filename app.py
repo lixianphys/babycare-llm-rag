@@ -13,6 +13,9 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
+STORE_CONVERSATION = False
+
 class BabyCareGradioApp:
     """
     Gradio application for the baby care chatbot.
@@ -34,7 +37,11 @@ class BabyCareGradioApp:
     
     def _initialize_chatbot(self):
         try:
-            self.chatbot = IntegratedBabyCareChatbot(enable_monitoring=True)
+            self.chatbot = IntegratedBabyCareChatbot(
+                enable_monitoring=True,
+                enable_conversation_storage=STORE_CONVERSATION,
+                conversation_db_path="gradio_conversations.json"
+            )
             
             # Get total document count once at startup
             kb_info = self.chatbot.get_knowledge_base_info()
@@ -42,6 +49,7 @@ class BabyCareGradioApp:
             
             logger.info("Baby Care Chatbot initialized successfully")
             logger.info(f"Total documents in knowledge base: {self.total_documents}")
+            logger.info("Conversation storage enabled")
         except Exception as e:
             logger.error(f"Error initializing chatbot: {e}")
             self.chatbot = None
@@ -254,14 +262,21 @@ class BabyCareGradioApp:
         """Get response from chatbot and track number of retrieved documents."""
         try:
             conversation_id = "gradio_session"
-            response, retrieved_count, retrieved_docs = self.chatbot.stream_chat_with_retrieval_info(message, conversation_id)
+            user_id = "gradio_user"  # You can make this dynamic based on session/user
+            
+            # Use the integrated method that handles both conversation storage and retrieval info
+            response, retrieved_count, retrieved_docs = self.chatbot.stream_chat_with_retrieval_info(
+                message, conversation_id, user_id
+            )
             
             return response, retrieved_count, retrieved_docs
             
         except Exception as e:
             # Fallback to regular chat if the new method fails
             logger.error(f"Error getting response with retrieval info: {e}. Falling back to regular chat.")
-            response = self.chatbot.chat(message)
+            conversation_id = "gradio_session"
+            user_id = "gradio_user"
+            response = self.chatbot.chat(message, conversation_id, user_id)
             return response, 0, []
     
     def _create_document_cards(self, documents):
@@ -313,13 +328,26 @@ class BabyCareGradioApp:
         logger.info("Launching Baby Care Chatbot Web Interface...")
         logger.info(f"Local URL: http://{server_name}:{server_port}")
         
-        self.interface.launch(
-            share=share,
-            server_name=server_name,
-            server_port=server_port,
-            show_error=True,
-            quiet=False
-        )
+        try:
+            self.interface.launch(
+                share=share,
+                server_name=server_name,
+                server_port=server_port,
+                show_error=True,
+                quiet=False
+            )
+        except KeyboardInterrupt:
+            logger.info("Shutting down application...")
+            self._cleanup()
+        except Exception as e:
+            logger.error(f"Error during application launch: {e}")
+            self._cleanup()
+    
+    def _cleanup(self):
+        """Clean up resources when the application shuts down."""
+        if self.chatbot and self.chatbot.conversation_storage:
+            self.chatbot.conversation_storage.close()
+            logger.info("Conversation storage closed")
 
 
 def main():

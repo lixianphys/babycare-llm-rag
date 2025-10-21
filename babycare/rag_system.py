@@ -57,7 +57,7 @@ class BabyCareRAGSystem:
     context-aware responses based on retrieved baby care documents.
     """
     
-    def __init__(self, vector_store, config=None, monitor=None):
+    def __init__(self, vector_store, config=None, monitor: Optional[LangSmithMonitor] = None):
         """
         Initialize the RAG system with vector store and configuration.
         
@@ -68,7 +68,7 @@ class BabyCareRAGSystem:
         """
         self.vector_store = vector_store
         self.config = config or RAGConfig()
-        self.monitor = monitor or LangSmithMonitor()
+        self.monitor = monitor
         
         # Initialize LLM for generation with monitoring callbacks
         self.llm = ChatOpenAI(
@@ -77,7 +77,7 @@ class BabyCareRAGSystem:
             max_tokens=self.config.max_tokens,
             streaming=True,
             timeout=30,
-            callbacks=self.monitor.get_callbacks()
+            callbacks=self.monitor.get_callbacks() if self.monitor else None
         )
         
         # Create RAG prompt template
@@ -259,16 +259,17 @@ class BabyCareRAGSystem:
             response = self.rag_chain.invoke(rag_input)
             
             # Log to LangSmith for monitoring
-            self.monitor.log_query(
-                query=question,
-                response=response,
-                metadata={
-                    "type": "rag_response",
-                    "model": self.config.model_name,
-                    "has_chat_history": len(chat_history or []) > 0,
-                    "chat_history_length": len(chat_history or [])
-                }
-            )
+            if self.monitor:
+                self.monitor.log_query(
+                    query=question,
+                    response=response,
+                    metadata={
+                        "type": "rag_response",
+                        "model": self.config.model_name,
+                        "has_chat_history": len(chat_history or []) > 0,
+                        "chat_history_length": len(chat_history or [])
+                    }
+                )
             
             logger.info(f"Generated RAG response for question: {question[:50]}...")
             return response
@@ -278,7 +279,8 @@ class BabyCareRAGSystem:
             error_response = "I apologize, but I'm having trouble accessing my knowledge base right now. Please try again later."
             
             # Log error to LangSmith
-            self.monitor.log_query(
+            if self.monitor:
+                self.monitor.log_query(
                 query=question,
                 response=error_response,
                 metadata={
@@ -338,7 +340,8 @@ class BabyCareRAGSystem:
             response = self.rag_chain.invoke(rag_input)
             
             # Log to LangSmith for monitoring
-            self.monitor.log_query(
+            if self.monitor:
+                self.monitor.log_query(
                 query=question,
                 response=response,
                 metadata={
@@ -358,7 +361,8 @@ class BabyCareRAGSystem:
             error_response = "I apologize, but I'm having trouble accessing my knowledge base right now. Please try again later."
             
             # Log error to LangSmith
-            self.monitor.log_query(
+            if self.monitor:
+                self.monitor.log_query(
                 query=question,
                 response=error_response,
                 metadata={
