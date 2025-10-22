@@ -13,7 +13,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "axios": "^1.7.2",
-    "lucide-react": "^0.400.0"
+    "lucide-react": "^0.400.0",
+    "js-cookie": "^3.0.5",
+    "@types/js-cookie": "^3.0.6"
   },
   "devDependencies": {
     "typescript": "^5.6.3",

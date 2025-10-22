@@ -3,10 +3,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { Sparkles, MessageSquare, RotateCcw } from 'lucide-react'
 import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 import MessageBubble from '../components/MessageBubble'
 import WelcomeScreen from '../components/WelcomeScreen'
 import ChatInput from '../components/ChatInput'
 import DocumentViewer from '../components/DocumentViewer'
+import LoginButton from '../components/LoginButton'
+import UserMenu from '../components/UserMenu'
+import ChatHistory from '../components/ChatHistory'
 
 interface Message {
   id: string
@@ -29,12 +33,14 @@ interface DocumentInfo {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function Home() {
+  const { isAuthenticated, isGuest } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [examples, setExamples] = useState<string[]>([])
   const [selectedDocument, setSelectedDocument] = useState<DocumentInfo | null>(null)
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false)
+  const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Load example questions on mount
@@ -160,13 +166,27 @@ export default function Home() {
             <p className="text-sm text-gray-500">AI-powered baby care knowledge</p>
           </div>
         </div>
-        <button
-          onClick={clearChat}
-          className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <RotateCcw className="h-4 w-4" />
-          <span>New chat</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={clearChat}
+            className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <RotateCcw className="h-4 w-4" />
+            <span>New chat</span>
+          </button>
+          {isAuthenticated ? (
+            <UserMenu onShowHistory={() => setIsChatHistoryOpen(true)} />
+          ) : (
+            <div className="flex items-center space-x-2">
+              <LoginButton />
+              {isGuest && (
+                <span className="text-sm text-gray-500">
+                  Guest mode - <span className="text-blue-600">Sign in to save chat history</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
@@ -227,12 +247,18 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Document Viewer Modal */}
-      <DocumentViewer
-        isOpen={isDocumentViewerOpen}
-        onClose={closeDocumentViewer}
-        document={selectedDocument}
-      />
-    </div>
-  )
-}
+          {/* Document Viewer Modal */}
+          <DocumentViewer
+            isOpen={isDocumentViewerOpen}
+            onClose={closeDocumentViewer}
+            document={selectedDocument}
+          />
+
+          {/* Chat History Modal */}
+          <ChatHistory
+            isOpen={isChatHistoryOpen}
+            onClose={() => setIsChatHistoryOpen(false)}
+          />
+        </div>
+      )
+    }
