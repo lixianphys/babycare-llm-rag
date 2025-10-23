@@ -30,7 +30,7 @@ export default function ChatHistory({ isOpen, onClose }: ChatHistoryProps) {
   const [selectedDocument, setSelectedDocument] = useState<any>(null)
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false)
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
   useEffect(() => {
     if (isOpen && isAuthenticated) {

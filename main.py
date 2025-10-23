@@ -3,6 +3,7 @@ FastAPI Backend for Baby Care Chatbot
 """
 
 import logging
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends
@@ -31,9 +32,17 @@ app = FastAPI(
 )
 
 # Configure CORS for Next.js frontend
+# Get allowed origins from environment variable or use defaults
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000", 
+    "http://localhost:3001", 
+    "http://localhost:3002"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://localhost:3002"],  # Next.js default ports
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

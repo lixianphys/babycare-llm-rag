@@ -7,13 +7,23 @@ from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import os
 
-# SQLite database for user management
+# Database URL - supports both SQLite (local) and PostgreSQL (production)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./babycare.db")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
+# Configure engine based on database type
+if "sqlite" in DATABASE_URL:
+    # SQLite configuration for local development
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+else:
+    # PostgreSQL configuration for production
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Verify connections before use
+        pool_recycle=300,    # Recycle connections every 5 minutes
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
